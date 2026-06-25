@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BASE_URL = 'https://depttest.brightechsoftware.com/api/v1';
+const BASE_URL = 'https://rtmdepart.brightechsoftware.com/api/v1';
 
 // ── In-memory auth cache ──────────────────────────────────────────
 // AsyncStorage is async so we can't read it inside a synchronous

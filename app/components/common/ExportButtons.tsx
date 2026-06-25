@@ -12,6 +12,7 @@
  *   />
  */
 import React, { useState } from 'react';
+import { downloadFile } from '../../utils/downloadFile';
 import {
   ActivityIndicator,
   Alert,
@@ -109,15 +110,10 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
       }
 
       if (kind === 'word') {
-        // Write HTML as a .doc file (Word opens it natively) using the new FS API.
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const FS = require('expo-file-system/legacy');
-        const dest = `${FS.cacheDirectory}${fileName}.doc`;
-        await FS.writeAsStringAsync(dest, fullHtml, { encoding: FS.EncodingType.UTF8 });
-        await Sharing.shareAsync(dest, {
+        await downloadFile({
+          fileName: `${fileName}.doc`,
+          content:  fullHtml,
           mimeType: 'application/msword',
-          dialogTitle: `Share ${fileName}.doc`,
-          UTI: 'com.microsoft.word.doc',
         });
       }
     } catch (err: any) {
