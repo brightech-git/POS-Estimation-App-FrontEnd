@@ -9,13 +9,15 @@ import { setAuthHeaders }             from '../api/axiosInstance';
 import LoginScreen                    from '../Screens/Auth/LoginScreen';
 import HomeScreen                     from '../Screens/Home/HomeScreen';
 import EstimationScreen               from '../Screens/Estimation/EstimationScreen';
+import PrinterSettingsScreen          from '../Screens/PrinterSettings/PrinterSettingsScreen';
 import { Colors, Spacing }            from '../components/common/theme';
 
 // ── Route param list ──────────────────────────────────────────────
 export type RootStackParamList = {
-  Login:      undefined;
-  Home:       undefined;
-  Estimation: undefined;
+  Login:           undefined;
+  Home:            undefined;
+  Estimation:      undefined;
+  PrinterSettings: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -71,9 +73,10 @@ const AppNavigator: React.FC = () => {
         initialRouteName={initialRoute}
         screenOptions={{ headerShown: false, animation: 'slide_from_right' }}
       >
-        <Stack.Screen name="Login"      component={LoginScreen}      />
-        <Stack.Screen name="Home"       component={HomeScreen}       />
-        <Stack.Screen name="Estimation" component={EstimationScreen} />
+        <Stack.Screen name="Login"           component={LoginScreen}           />
+        <Stack.Screen name="Home"            component={HomeScreen}            />
+        <Stack.Screen name="Estimation"      component={EstimationScreen}      />
+        <Stack.Screen name="PrinterSettings" component={PrinterSettingsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

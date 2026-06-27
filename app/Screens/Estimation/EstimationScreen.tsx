@@ -16,12 +16,12 @@ import { useToast }                      from '../../components/common/Toast';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../../components/common/theme';
 import { GstCalculator }                 from '../../utils/GstCalculator';
 import { useFetchControls, useTagLookup, useSaveEstimate } from '../../api/hooks/useEstimation';
+import { useEstimationPrint }            from '../../api/hooks/useEstimationPrint';
 import { AsyncStorageHelper }            from '../../utils/AsyncStorageHelper';
 import type { EstimationItem }           from '../../types/estimation';
 import type { CustomerInfo }             from '../../types/customer';
 import type { RootStackParamList }       from '../../Navigations/AppNavigator';
 import CustomerModal                     from '../../components/Estimation/CustomerModal';
-import EstimationReceiptModal            from './EstimationReceiptModal';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Estimation'>;
 
@@ -39,6 +39,7 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
   const { taxType, fetchControls } = useFetchControls();
   const { product, searching, error: lookupError, lookup, clearProduct } = useTagLookup(taxType);
   const { saving, saveError, savedEstNo, save, clearSaveError } = useSaveEstimate();
+  const { executePrint, printing, activePrinter, refreshPrinter } = useEstimationPrint();
 
   const [tagInput,         setTagInput]         = useState('');
   const [qty,              setQty]              = useState('1');
@@ -48,14 +49,15 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
   const [operCode,         setOperCode]         = useState('');
   const [showCustomerModal,setShowCustomerModal]= useState(false);
 
-  // ── Print receipt state ───────────────────────────────────────────
-  const [showReceipt,    setShowReceipt]    = useState(false);
-  const [receiptEstNo,   setReceiptEstNo]   = useState('');
-  const [receiptItems,   setReceiptItems]   = useState<EstimationItem[]>([]);
-  const [receiptCustomer,setReceiptCustomer]= useState<CustomerInfo | null>(null);
-  const [receiptSalesman,setReceiptSalesman]= useState('');
-  const [receiptDate,    setReceiptDate]    = useState('');
-  const [receiptTime,    setReceiptTime]    = useState('');
+  // ── Print params snapshot (captured before form is reset) ─────────
+  const printParamsRef = useRef<{
+    estNo: string;
+    billDate: string;
+    billTime: string;
+    items: EstimationItem[];
+    customerInfo: CustomerInfo | null;
+    salesman: string;
+  } | null>(null);
 
   // Load operator code + controls on mount
   useEffect(() => {
@@ -65,15 +67,19 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
     });
   }, []);
 
-  // When tag lookup returns product — set qty to available pieces, focus QTY
+  // Refresh printer when screen comes into focus (in case user just configured one)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      refreshPrinter();
+    });
+    return unsubscribe;
+  }, [navigation, refreshPrinter]);
+
+  // When tag lookup returns product — focus QTY
   useEffect(() => {
     if (product) {
-      const avail = product.pieces ?? product.stockPieces ?? product.availablePieces ?? 0;
-      // For weight items auto-fill weight, otherwise default 1 (capped at stock)
       if (product.weight && product.weight > 0) {
         setQty(String(product.weight));
-      } else if (avail > 0) {
-        setQty('1');           // start at 1; user can increase up to avail
       } else {
         setQty('1');
       }
@@ -95,11 +101,12 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
     if (saveError) { toast.show({ message: saveError, type: 'error' }); clearSaveError(); }
   }, [saveError]);
 
-  // save success → trigger auto-print
+  // Save success → TCP print
   useEffect(() => {
-    if (savedEstNo) {
-      setReceiptEstNo(savedEstNo);
-      setShowReceipt(true);
+    if (savedEstNo && printParamsRef.current) {
+      const params = { ...printParamsRef.current, estNo: savedEstNo };
+      printParamsRef.current = null;
+      executePrint(params);
     }
   }, [savedEstNo]);
 
@@ -115,10 +122,9 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
     : 0;
 
   const handleQtyChange = useCallback((text: string) => {
-    // Allow empty / partial input while typing
     if (text === '' || text === '.') { setQty(text); return; }
     const num = Number(text);
-    if (isNaN(num)) return;          // reject non-numeric
+    if (isNaN(num)) return;
     if (availablePieces > 0 && num > availablePieces) {
       toast.show({ message: `Only ${availablePieces} pcs available`, type: 'warning', duration: 2000 });
       setQty(String(availablePieces));
@@ -133,7 +139,6 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
     const q = Number(qty);
     if (!q || q <= 0) { toast.show({ message: 'Enter a valid quantity', type: 'warning' }); return; }
 
-    // Hard check: don't allow qty > available
     const avail = product.pieces ?? product.stockPieces ?? product.availablePieces ?? 0;
     if (avail > 0 && q > avail) {
       toast.show({ message: `Max allowed: ${avail} pcs`, type: 'warning' });
@@ -143,7 +148,6 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
 
     if (!salesman.trim()) { toast.show({ message: 'Enter salesman code', type: 'warning' }); return; }
 
-    // Duplicate check
     const tagKey = product.tagNo || product.orionBarcode || '';
     if (tagKey && items.some(i => i.tagNo === tagKey || i.ORIONBARCODE === tagKey)) {
       toast.show({ message: `Tag ${tagKey} already added`, type: 'warning' }); return;
@@ -194,7 +198,6 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
     setItems(prev => [...prev, newItem].map((it, i) => ({ ...it, sno: i + 1 })));
     toast.show({ message: 'Item added', type: 'success', duration: 1500 });
 
-    // Reset form, keep salesman
     setTagInput('');
     setQty('1');
     setDiscPer('0');
@@ -226,23 +229,24 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   // ── Save flow ─────────────────────────────────────────────────────
-  // Step 1: open customer modal
   const handleSave = () => {
     if (!items.length) { toast.show({ message: 'Add at least one item', type: 'warning' }); return; }
     setShowCustomerModal(true);
   };
 
-  // Snapshot receipt data before clearing the form
-  const snapshotReceipt = (customerInfo: CustomerInfo | null) => {
+  // Snapshot print params before clearing form
+  const snapshotPrint = (customerInfo: CustomerInfo | null) => {
     const now = new Date();
-    setReceiptItems([...items]);
-    setReceiptCustomer(customerInfo);
-    setReceiptSalesman(salesman);
-    setReceiptDate(now.toLocaleDateString('en-IN'));
-    setReceiptTime(now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }));
+    printParamsRef.current = {
+      estNo:        '',   // filled in when savedEstNo arrives
+      billDate:     now.toLocaleDateString('en-IN'),
+      billTime:     now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+      items:        [...items],
+      customerInfo,
+      salesman,
+    };
   };
 
-  // Reset form fields
   const resetForm = () => {
     setItems([]);
     setTagInput('');
@@ -252,24 +256,19 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
     setTimeout(() => tagRef.current?.focus(), 100);
   };
 
-  // Step 2a: customer confirmed → save with their info
   const handleCustomerConfirm = async (customerInfo: CustomerInfo) => {
     setShowCustomerModal(false);
-    snapshotReceipt(customerInfo);
+    snapshotPrint(customerInfo);
     const estNo = await save(items, taxType, operCode, customerInfo);
     if (estNo) resetForm();
   };
 
-  // Step 2b: walk-in / skip → save with empty customer
   const handleCustomerSkip = async () => {
     setShowCustomerModal(false);
-    snapshotReceipt(null);
+    snapshotPrint(null);
     const estNo = await save(items, taxType, operCode, null);
     if (estNo) resetForm();
   };
-
-  // Called when auto-print finishes (print dialog closed)
-  const handleReceiptClose = () => setShowReceipt(false);
 
   // ── Totals ────────────────────────────────────────────────────────
   const totals = GstCalculator.calculateTotals(items);
@@ -283,12 +282,26 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
         onBack={() => navigation.goBack()}
         actions={[
           {
+            icon: <Text style={styles.headerIcon}>🖨</Text>,
+            onPress: () => navigation.navigate('PrinterSettings'),
+            label: 'Printer settings',
+          },
+          {
             icon: <Text style={styles.headerIcon}>🗑</Text>,
             onPress: handleClear,
             label: 'Clear all',
           },
         ]}
       />
+
+      {/* Printer status bar */}
+      {activePrinter && (
+        <View style={styles.printerBar}>
+          <View style={styles.printerDot} />
+          <Text style={styles.printerBarText}>{activePrinter.name} · {activePrinter.ip_address}</Text>
+          {printing && <ActivityIndicator size="small" color={Colors.white} style={{ marginLeft: 8 }} />}
+        </View>
+      )}
 
       <ScrollView
         style={styles.scroll}
@@ -454,14 +467,16 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
         {/* ── Save button ── */}
         {items.length > 0 && (
           <TouchableOpacity
-            style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+            style={[styles.saveBtn, (saving || printing) && styles.saveBtnDisabled]}
             onPress={handleSave}
-            disabled={saving}
+            disabled={saving || printing}
             activeOpacity={0.85}
           >
             {saving
               ? <ActivityIndicator color={Colors.white} />
-              : <Text style={styles.saveBtnText}>💾  Save Estimate</Text>
+              : printing
+                ? <><ActivityIndicator color={Colors.white} /><Text style={[styles.saveBtnText, { marginLeft: 8 }]}>Printing…</Text></>
+                : <Text style={styles.saveBtnText}>💾  Save Estimate</Text>
             }
           </TouchableOpacity>
         )}
@@ -476,19 +491,6 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
         onConfirm={handleCustomerConfirm}
         onSkip={handleCustomerSkip}
         onClose={() => setShowCustomerModal(false)}
-      />
-
-      {/* ── Auto-print receipt (renders nothing, fires print dialog immediately) ── */}
-      <EstimationReceiptModal
-        autoPrint
-        visible={showReceipt}
-        estNo={receiptEstNo}
-        items={receiptItems}
-        customerInfo={receiptCustomer}
-        salesman={receiptSalesman}
-        billDate={receiptDate}
-        billTime={receiptTime}
-        onClose={handleReceiptClose}
       />
     </View>
   );
@@ -528,6 +530,15 @@ const styles = StyleSheet.create({
   scrollContent: { padding: Spacing.lg },
   headerIcon: { color: Colors.white, fontSize: 18 },
 
+  // Printer status bar
+  printerBar: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: Colors.success, paddingHorizontal: Spacing.md,
+    paddingVertical: 5,
+  },
+  printerDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.white, marginRight: 6 },
+  printerBarText: { fontSize: Typography.fontSizeXS, color: Colors.white, flex: 1 },
+
   card: {
     backgroundColor: Colors.white,
     borderRadius:    Radius.lg,
@@ -543,7 +554,6 @@ const styles = StyleSheet.create({
     marginBottom:  Spacing.md,
   },
 
-  // Tag row
   fieldRow:   { marginBottom: Spacing.md },
   fieldLabel: { fontSize: Typography.fontSizeSM, fontWeight: Typography.fontWeightSemiBold, color: Colors.textPrimary, marginBottom: 4 },
   req:        { color: Colors.error },
@@ -573,7 +583,6 @@ const styles = StyleSheet.create({
   },
   lookupBtnText: { color: Colors.white, fontWeight: Typography.fontWeightBold, fontSize: Typography.fontSizeSM },
 
-  // Product box
   productBox: {
     backgroundColor: Colors.primaryBg,
     borderRadius:    Radius.md,
@@ -595,7 +604,6 @@ const styles = StyleSheet.create({
   chipLabel: { fontSize: Typography.fontSizeXS, color: Colors.textSecondary },
   chipValue: { fontSize: Typography.fontSizeSM, fontWeight: Typography.fontWeightBold, color: Colors.textPrimary },
 
-  // 3-col row
   row3: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md },
   col:  { flex: 1 },
 
@@ -608,7 +616,6 @@ const styles = StyleSheet.create({
   },
   addBtnText: { color: Colors.white, fontWeight: Typography.fontWeightBold, fontSize: Typography.fontSizeMD },
 
-  // Table
   tableRow:   { flexDirection: 'row', alignItems: 'center' },
   tableHeader: { backgroundColor: Colors.tableHeader, paddingVertical: Spacing.sm, borderRadius: Radius.sm, marginBottom: 2 },
   rowEven:    { backgroundColor: Colors.tableRowEven, paddingVertical: Spacing.xs },
@@ -628,7 +635,6 @@ const styles = StyleSheet.create({
   },
   deleteBtn: { color: Colors.error, fontWeight: Typography.fontWeightBold, fontSize: 14 },
 
-  // Summary
   summaryCard: {
     backgroundColor: Colors.white,
     borderRadius:    Radius.lg,
@@ -640,12 +646,13 @@ const styles = StyleSheet.create({
   summaryLabel: { fontSize: Typography.fontSizeMD, color: Colors.textSecondary },
   summaryValue: { fontSize: Typography.fontSizeMD, color: Colors.textPrimary },
 
-  // Save
   saveBtn: {
     backgroundColor: Colors.success,
     borderRadius:    Radius.lg,
     paddingVertical: Spacing.lg,
     alignItems:      'center',
+    flexDirection:   'row',
+    justifyContent:  'center',
     marginBottom:    Spacing.lg,
     ...Shadow.md,
   },

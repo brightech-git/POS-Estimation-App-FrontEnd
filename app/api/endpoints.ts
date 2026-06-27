@@ -32,3 +32,10 @@ export const COST_CENTRE = {
 export const COMPANY = {
   GET_ALL: '/company/all',                       // GET → first item has COMPANYNAME
 };
+
+export const PRINTER = {
+  BY_EMP:  '/printers/by-emp',   // GET ?empId=
+  CREATE:  '/printers/create',   // POST
+  UPDATE:  '/printers/update',   // PUT
+  DELETE:  '/printers/delete',   // DELETE ?id=
+};
