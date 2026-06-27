@@ -6,30 +6,35 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+
     "ios": {
       "supportsTablet": true
     },
+
     "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
-      },
+      "package": "com.brightech.posestimation",
       "predictiveBackGestureEnabled": false,
-      "package": "com.brightech.posestimation"
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#E6F4FE"
+      }
     },
+
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/icon.png"
     },
+
     "plugins": [
-      "expo-sharing"
+      "expo-sharing",
+      "expo-font"
     ],
+
     "extra": {
       "eas": {
         "projectId": "57cc5910-fa80-487f-b77d-2ae6f71c6f34"
       }
     },
+
     "owner": "brightech"
   }
 }
