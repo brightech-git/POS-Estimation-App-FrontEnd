@@ -11,28 +11,25 @@ import {
 import type { EstimationItem } from '../../types/estimation';
 import type { CustomerInfo } from '../../types/customer';
 
-
-
 export const useEstimationPrint = () => {
-  const [activePrinter, setActivePrinter]   = useState<Printer | null>(null);
-  const [printing,      setPrinting]        = useState(false);
-  const [loadingPrinter,setLoadingPrinter]  = useState(true);
-  const isMounted = useRef(true);
+  const [activePrinter,  setActivePrinter]  = useState<Printer | null>(null);
+  const [printing,       setPrinting]       = useState(false);
+  const [loadingPrinter, setLoadingPrinter] = useState(true);
+  const isMounted      = useRef(true);
   const printerService = usePrinterService();
 
-  // ── Load active printer on mount ────────────────────────────────
+  // ── Load active printer for logged-in operator ────────────────────
   const loadActivePrinter = useCallback(async () => {
     try {
       setLoadingPrinter(true);
       const operCode = await AsyncStorageHelper.getOperCode();
       if (!operCode) { setLoadingPrinter(false); return; }
 
-      const printers = await printerService.getPrintersByEmployee(operCode);
+      const printers = await printerService.getPrintersByOperCode(operCode);
       if (!isMounted.current) return;
 
-      const active = printers.find(p =>
-        p.active === true || (p.active as any) === 'true' || (p.active as any) === 1,
-      ) ?? null;
+      // active is "Y" | "N" from backend
+      const active = printers.find(p => p.active === 'Y') ?? null;
       setActivePrinter(active);
     } catch (e) {
       console.warn('[useEstimationPrint] loadActivePrinter error:', e);
@@ -47,7 +44,7 @@ export const useEstimationPrint = () => {
     return () => { isMounted.current = false; };
   }, []);
 
-  // ── Execute print ────────────────────────────────────────────────
+  // ── Execute print ─────────────────────────────────────────────────
   const executePrint = useCallback(async (params: {
     estNo: string;
     billDate: string;
@@ -61,24 +58,22 @@ export const useEstimationPrint = () => {
     if (!activePrinter) {
       Alert.alert(
         'No Printer',
-        'No active printer configured. Please add a printer in Printer Settings.',
+        'No active printer configured. Go to Printer Settings to add one.',
       );
       return;
     }
 
     setPrinting(true);
     try {
-      // Connectivity check
       const status = await checkPrinterConnection(activePrinter);
       if (!status.connected) {
         Alert.alert(
           'Printer Offline',
-          `Cannot reach printer "${activePrinter.name}" at ${activePrinter.ip_address}.\n\n${status.error ?? ''}`,
+          `Cannot reach "${activePrinter.printerName}".\n${status.error ?? ''}`,
           [{ text: 'OK' }],
         );
         return;
       }
-
       const content = buildReceiptContent(params);
       await printEstimation(activePrinter, content);
     } catch (e: any) {

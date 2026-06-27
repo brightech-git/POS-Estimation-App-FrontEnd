@@ -33,9 +33,16 @@ export const COMPANY = {
   GET_ALL: '/company/all',                       // GET → first item has COMPANYNAME
 };
 
+export const EMPLOYEE = {
+  SEARCH: (search: string, page = 0, size = 10) =>
+    `/employee/all?page=${page}&size=${size}&search=${encodeURIComponent(search)}`,
+};
+
 export const PRINTER = {
-  BY_EMP:  '/printers/by-emp',   // GET ?empId=
-  CREATE:  '/printers/create',   // POST
-  UPDATE:  '/printers/update',   // PUT
-  DELETE:  '/printers/delete',   // DELETE ?id=
+  BY_OPER:    (operCode: string | number) => `/printer-setting/operator/${operCode}`,
+  CREATE:     '/printer-setting',
+  UPDATE:     (printCode: number) => `/printer-setting/${printCode}`,
+  ACTIVATE:   (printCode: number) => `/printer-setting/${printCode}/activate`,
+  DEACTIVATE: (printCode: number) => `/printer-setting/${printCode}/deactivate`,
+  DELETE:     (printCode: number) => `/printer-setting/${printCode}`,
 };

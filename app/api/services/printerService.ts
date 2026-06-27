@@ -1,53 +1,67 @@
-import { callApi } from "../apiClient";
+import { callApi } from '../apiClient';
+import { PRINTER } from '../endpoints';
 
-const BASE_URL = "https://est.bmgjewellers.com/api/v1/printers";
-
+// ─── Types (mirror backend PrinterSetting entity) ─────────────────────────────
 export interface Printer {
-  id: number;
-  name: string;
-  ip_address: string;
-  port: number;
-  active: boolean;
-  empId: number;
+  printCode:   number;
+  operCode:    number;
+  printerName: string;   // stored IP address for TCP connection
+  billType?:   string;
+  active:      string;   // "Y" | "N"
+  createdBy?:  number;
+  createdDate?: string;
+  createdTime?: string;
 }
 
 export interface PrinterPayload {
-  id?: number;
-  ipAddress: string;
-  port: number;
-  name: string;
-  active: boolean;
-  empId: number;
+  printCode?:  number;
+  operCode:    number;
+  printerName: string;
+  billType?:   string;
+  active?:     string;   // "Y" | "N"
 }
 
-// GET
-export const getPrintersByEmployee = (empId: string | number) =>
+// ── GET /printer-setting/operator/{operCode} ──────────────────────
+export const getPrintersByOperCode = (operCode: string | number) =>
   callApi<never, Printer[]>({
-    method: "get",
-    url: `${BASE_URL}/by-emp`,
-    params: { empId },
+    method: 'get',
+    url:    PRINTER.BY_OPER(operCode),
   });
 
-// POST
-export const createPrinter = (data: PrinterPayload) =>
+// ── POST /printer-setting  (createdBy sent via axiosInstance header) ──
+export const createPrinterSetting = (data: PrinterPayload) =>
   callApi<PrinterPayload, Printer>({
-    method: "post",
-    url: `${BASE_URL}/create`,
+    method: 'post',
+    url:    PRINTER.CREATE,
     data,
   });
 
-// PUT
-export const updatePrinter = (data: PrinterPayload) =>
+// ── PUT /printer-setting/{printCode} ─────────────────────────────
+export const updatePrinterSetting = (printCode: number, data: PrinterPayload) =>
   callApi<PrinterPayload, Printer>({
-    method: "put",
-    url: `${BASE_URL}/update`,
+    method: 'put',
+    url:    PRINTER.UPDATE(printCode),
     data,
   });
 
-// DELETE
-export const deletePrinter = (id: number) =>
+// ── PATCH /printer-setting/{printCode}/activate ───────────────────
+// Server deactivates all others automatically
+export const activatePrinter = (printCode: number) =>
+  callApi<never, { message: string; data: Printer }>({
+    method: 'patch',
+    url:    PRINTER.ACTIVATE(printCode),
+  });
+
+// ── PATCH /printer-setting/{printCode}/deactivate ────────────────
+export const deactivatePrinter = (printCode: number) =>
+  callApi<never, { message: string; data: Printer }>({
+    method: 'patch',
+    url:    PRINTER.DEACTIVATE(printCode),
+  });
+
+// ── DELETE /printer-setting/{printCode} ──────────────────────────
+export const deletePrinterSetting = (printCode: number) =>
   callApi<never, void>({
-    method: "delete",
-    url: `${BASE_URL}/delete`,
-    params: { id },
+    method: 'delete',
+    url:    PRINTER.DELETE(printCode),
   });

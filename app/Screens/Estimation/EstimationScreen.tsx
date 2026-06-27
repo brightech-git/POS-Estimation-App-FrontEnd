@@ -17,6 +17,7 @@ import { Colors, Typography, Spacing, Radius, Shadow } from '../../components/co
 import { GstCalculator }                 from '../../utils/GstCalculator';
 import { useFetchControls, useTagLookup, useSaveEstimate } from '../../api/hooks/useEstimation';
 import { useEstimationPrint }            from '../../api/hooks/useEstimationPrint';
+import { useEmployeeService }            from '../../api/hooks/useEmployee';
 import { AsyncStorageHelper }            from '../../utils/AsyncStorageHelper';
 import type { EstimationItem }           from '../../types/estimation';
 import type { CustomerInfo }             from '../../types/customer';
@@ -40,11 +41,14 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
   const { product, searching, error: lookupError, lookup, clearProduct } = useTagLookup(taxType);
   const { saving, saveError, savedEstNo, save, clearSaveError } = useSaveEstimate();
   const { executePrint, printing, activePrinter, refreshPrinter } = useEstimationPrint();
+  const employeeService = useEmployeeService();
 
   const [tagInput,         setTagInput]         = useState('');
   const [qty,              setQty]              = useState('1');
   const [discPer,          setDiscPer]          = useState('0');
   const [salesman,         setSalesman]         = useState('');
+  const [salesmanName,     setSalesmanName]     = useState('');
+  const [lookingUpSalesman,setLookingUpSalesman]= useState(false);
   const [items,            setItems]            = useState<EstimationItem[]>([]);
   const [operCode,         setOperCode]         = useState('');
   const [showCustomerModal,setShowCustomerModal]= useState(false);
@@ -234,6 +238,27 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
     setShowCustomerModal(true);
   };
 
+  // ── Salesman code → name lookup ───────────────────────────────────
+  const handleSalesmanBlur = async () => {
+    const code = salesman.trim();
+    if (!code || lookingUpSalesman) return;
+    setLookingUpSalesman(true);
+    try {
+      const emp = await employeeService.findEmployeeByCode(code);
+      if (emp) {
+        const fullName = [emp.EMPNAME, emp.EMPSURNAME].filter(Boolean).join(' ');
+        setSalesmanName(fullName);
+      } else {
+        setSalesmanName('');
+        toast.show({ message: `No employee found for code "${code}"`, type: 'warning' });
+      }
+    } catch {
+      setSalesmanName('');
+    } finally {
+      setLookingUpSalesman(false);
+    }
+  };
+
   // Snapshot print params before clearing form
   const snapshotPrint = (customerInfo: CustomerInfo | null) => {
     const now = new Date();
@@ -243,7 +268,7 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
       billTime:     now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
       items:        [...items],
       customerInfo,
-      salesman,
+      salesman: salesmanName || salesman,   // prefer full name, fallback to code
     };
   };
 
@@ -252,6 +277,8 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
     setTagInput('');
     setQty('1');
     setDiscPer('0');
+    setSalesman('');
+    setSalesmanName('');
     clearProduct();
     setTimeout(() => tagRef.current?.focus(), 100);
   };
@@ -298,7 +325,7 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
       {activePrinter && (
         <View style={styles.printerBar}>
           <View style={styles.printerDot} />
-          <Text style={styles.printerBarText}>{activePrinter.name} · {activePrinter.ip_address}</Text>
+          <Text style={styles.printerBarText}>{activePrinter.printerName} · Port 9100</Text>
           {printing && <ActivityIndicator size="small" color={Colors.white} style={{ marginLeft: 8 }} />}
         </View>
       )}
@@ -394,13 +421,20 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
                 ref={salesmanRef}
                 style={styles.input}
                 value={salesman}
-                onChangeText={setSalesman}
+                onChangeText={v => { setSalesman(v); setSalesmanName(''); }}
                 placeholder="Code"
                 placeholderTextColor={Colors.textDisabled}
                 autoCapitalize="characters"
                 returnKeyType="done"
+                onBlur={handleSalesmanBlur}
                 onSubmitEditing={handleAdd}
               />
+              {lookingUpSalesman && (
+                <ActivityIndicator size="small" color={Colors.primary} style={{ marginTop: 2 }} />
+              )}
+              {!!salesmanName && !lookingUpSalesman && (
+                <Text style={styles.salesmanNameHint}>{salesmanName}</Text>
+              )}
             </View>
           </View>
 
@@ -557,6 +591,10 @@ const styles = StyleSheet.create({
   fieldRow:   { marginBottom: Spacing.md },
   fieldLabel: { fontSize: Typography.fontSizeSM, fontWeight: Typography.fontWeightSemiBold, color: Colors.textPrimary, marginBottom: 4 },
   req:        { color: Colors.error },
+  salesmanNameHint: {
+    fontSize: Typography.fontSizeXS, color: Colors.primary,
+    fontWeight: Typography.fontWeightSemiBold, marginTop: 2,
+  },
   maxHint:    { color: Colors.textSecondary, fontWeight: Typography.fontWeightNormal, fontSize: Typography.fontSizeXS },
   inputError: { borderColor: Colors.error },
   tagRow:     { flexDirection: 'row', gap: Spacing.sm },

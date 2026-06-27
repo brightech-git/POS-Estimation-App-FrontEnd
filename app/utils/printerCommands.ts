@@ -4,6 +4,9 @@ export const FONTS = {
   BOLD_ON:       '\x1B\x21\x08',
   BOLD_OFF:      '\x1B\x21\x00',
   DOUBLE_HEIGHT: '\x1B\x21\x10',
+  // Combined modes (ESC ! n is a single SET — combining separate commands loses the first)
+  BOLD_HEIGHT:   '\x1B\x21\x18',  // bold + double-height (0x08|0x10)
+  BIG:           '\x1B\x21\x38',  // bold + double-height + double-width (0x08|0x10|0x20)
   ALIGN_LEFT:    '\x1B\x61\x00',
   ALIGN_CENTER:  '\x1B\x61\x01',
   ALIGN_RIGHT:   '\x1B\x61\x02',
