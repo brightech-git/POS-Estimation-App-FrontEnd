@@ -21,6 +21,7 @@ import type { EstimationItem }           from '../../types/estimation';
 import type { CustomerInfo }             from '../../types/customer';
 import type { RootStackParamList }       from '../../Navigations/AppNavigator';
 import CustomerModal                     from '../../components/Estimation/CustomerModal';
+import EstimationReceiptModal            from './EstimationReceiptModal';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Estimation'>;
 
@@ -46,6 +47,15 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
   const [items,            setItems]            = useState<EstimationItem[]>([]);
   const [operCode,         setOperCode]         = useState('');
   const [showCustomerModal,setShowCustomerModal]= useState(false);
+
+  // ── Print receipt state ───────────────────────────────────────────
+  const [showReceipt,    setShowReceipt]    = useState(false);
+  const [receiptEstNo,   setReceiptEstNo]   = useState('');
+  const [receiptItems,   setReceiptItems]   = useState<EstimationItem[]>([]);
+  const [receiptCustomer,setReceiptCustomer]= useState<CustomerInfo | null>(null);
+  const [receiptSalesman,setReceiptSalesman]= useState('');
+  const [receiptDate,    setReceiptDate]    = useState('');
+  const [receiptTime,    setReceiptTime]    = useState('');
 
   // Load operator code + controls on mount
   useEffect(() => {
@@ -85,10 +95,11 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
     if (saveError) { toast.show({ message: saveError, type: 'error' }); clearSaveError(); }
   }, [saveError]);
 
-  // save success toast
+  // save success → trigger auto-print
   useEffect(() => {
     if (savedEstNo) {
-      toast.show({ message: `Estimate saved! EST No: ${savedEstNo}`, type: 'success', duration: 4000 });
+      setReceiptEstNo(savedEstNo);
+      setShowReceipt(true);
     }
   }, [savedEstNo]);
 
@@ -221,33 +232,44 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
     setShowCustomerModal(true);
   };
 
+  // Snapshot receipt data before clearing the form
+  const snapshotReceipt = (customerInfo: CustomerInfo | null) => {
+    const now = new Date();
+    setReceiptItems([...items]);
+    setReceiptCustomer(customerInfo);
+    setReceiptSalesman(salesman);
+    setReceiptDate(now.toLocaleDateString('en-IN'));
+    setReceiptTime(now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }));
+  };
+
+  // Reset form fields
+  const resetForm = () => {
+    setItems([]);
+    setTagInput('');
+    setQty('1');
+    setDiscPer('0');
+    clearProduct();
+    setTimeout(() => tagRef.current?.focus(), 100);
+  };
+
   // Step 2a: customer confirmed → save with their info
   const handleCustomerConfirm = async (customerInfo: CustomerInfo) => {
     setShowCustomerModal(false);
+    snapshotReceipt(customerInfo);
     const estNo = await save(items, taxType, operCode, customerInfo);
-    if (estNo) {
-      setItems([]);
-      setTagInput('');
-      setQty('1');
-      setDiscPer('0');
-      clearProduct();
-      setTimeout(() => tagRef.current?.focus(), 100);
-    }
+    if (estNo) resetForm();
   };
 
   // Step 2b: walk-in / skip → save with empty customer
   const handleCustomerSkip = async () => {
     setShowCustomerModal(false);
+    snapshotReceipt(null);
     const estNo = await save(items, taxType, operCode, null);
-    if (estNo) {
-      setItems([]);
-      setTagInput('');
-      setQty('1');
-      setDiscPer('0');
-      clearProduct();
-      setTimeout(() => tagRef.current?.focus(), 100);
-    }
+    if (estNo) resetForm();
   };
+
+  // Called when auto-print finishes (print dialog closed)
+  const handleReceiptClose = () => setShowReceipt(false);
 
   // ── Totals ────────────────────────────────────────────────────────
   const totals = GstCalculator.calculateTotals(items);
@@ -454,6 +476,19 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
         onConfirm={handleCustomerConfirm}
         onSkip={handleCustomerSkip}
         onClose={() => setShowCustomerModal(false)}
+      />
+
+      {/* ── Auto-print receipt (renders nothing, fires print dialog immediately) ── */}
+      <EstimationReceiptModal
+        autoPrint
+        visible={showReceipt}
+        estNo={receiptEstNo}
+        items={receiptItems}
+        customerInfo={receiptCustomer}
+        salesman={receiptSalesman}
+        billDate={receiptDate}
+        billTime={receiptTime}
+        onClose={handleReceiptClose}
       />
     </View>
   );

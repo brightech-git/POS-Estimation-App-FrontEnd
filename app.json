@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "POS-Estimation",
-    "slug": "POS-Estimation",
+    "slug": "posestimation",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -16,13 +16,20 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.brightech.posestimation"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-sharing"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "57cc5910-fa80-487f-b77d-2ae6f71c6f34"
+      }
+    },
+    "owner": "brightech"
   }
 }
