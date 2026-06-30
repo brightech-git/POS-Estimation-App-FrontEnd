@@ -10,6 +10,7 @@ import LoginScreen                    from '../Screens/Auth/LoginScreen';
 import HomeScreen                     from '../Screens/Home/HomeScreen';
 import EstimationScreen               from '../Screens/Estimation/EstimationScreen';
 import PrinterSettingsScreen          from '../Screens/PrinterSettings/PrinterSettingsScreen';
+import RemainingStockScreen           from '../Screens/RemainingStock/RemainingStockScreen';
 import { Colors, Spacing }            from '../components/common/theme';
 
 // ── Route param list ──────────────────────────────────────────────
@@ -18,6 +19,7 @@ export type RootStackParamList = {
   Home:            undefined;
   Estimation:      undefined;
   PrinterSettings: undefined;
+  RemainingStock:  undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -77,6 +79,7 @@ const AppNavigator: React.FC = () => {
         <Stack.Screen name="Home"            component={HomeScreen}            />
         <Stack.Screen name="Estimation"      component={EstimationScreen}      />
         <Stack.Screen name="PrinterSettings" component={PrinterSettingsScreen} />
+        <Stack.Screen name="RemainingStock"  component={RemainingStockScreen}  />
       </Stack.Navigator>
     </NavigationContainer>
   );

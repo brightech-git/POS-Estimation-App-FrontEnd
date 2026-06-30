@@ -53,6 +53,19 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           </View>
           <Text style={styles.cardArrow}>›</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.card, { marginTop: Spacing.md }]}
+          activeOpacity={0.85}
+          onPress={() => navigation.navigate('RemainingStock')}
+        >
+          <Text style={styles.cardIcon}>📦</Text>
+          <View style={styles.cardText}>
+            <Text style={styles.cardLabel}>Remaining Stock</Text>
+            <Text style={styles.cardSub}>View & filter stock balances</Text>
+          </View>
+          <Text style={styles.cardArrow}>›</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );

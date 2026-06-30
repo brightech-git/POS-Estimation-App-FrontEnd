@@ -38,6 +38,10 @@ export const EMPLOYEE = {
     `/employee/all?page=${page}&size=${size}&search=${encodeURIComponent(search)}`,
 };
 
+export const REMAINING_STOCK = {
+  GET: '/remaining-stock',
+};
+
 export const PRINTER = {
   BY_OPER:    (operCode: string | number) => `/printer-setting/operator/${operCode}`,
   CREATE:     '/printer-setting',

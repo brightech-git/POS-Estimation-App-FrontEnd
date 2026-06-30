@@ -114,7 +114,8 @@ export const buildReceiptContent = (params: {
   const gap1 = Math.max(1, W - estLabel.length - dateLabel.length);
   c += estLabel + ' '.repeat(gap1) + dateLabel + '\n';
   
-  const gap2 = Math.max(1, W - timeLabel.length);
+  const timeCol = estLabel.length + gap1 + dateLabel.length;
+  const gap2 = Math.max(1, timeCol - timeLabel.length);
   c += ' '.repeat(gap2) + timeLabel + '\n';
 
   // ── Customer ─────────────────────────────────────────────────────
@@ -199,7 +200,7 @@ export const buildReceiptContent = (params: {
 
   c += FONTS.ALIGN_CENTER;
   c += FONTS.BOLD_ON;
-  c += 'Join our Exciting Chit Schemes  Ask us for details!\n';
+  c += 'Join our Exciting Chit Schemes Ask us for detail\n';
   c += footer + '\n';
   c += FONTS.NORMAL;
 

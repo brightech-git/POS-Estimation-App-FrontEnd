@@ -265,7 +265,7 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
     printParamsRef.current = {
       estNo:        '',   // filled in when savedEstNo arrives
       billDate:     now.toLocaleDateString('en-IN'),
-      billTime:     now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+      billTime:     `${String(now.getHours() % 12 || 12).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')} ${now.getHours() >= 12 ? 'PM' : 'AM'}`,
       items:        [...items],
       customerInfo,
       salesman: salesmanName || salesman,   // prefer full name, fallback to code
