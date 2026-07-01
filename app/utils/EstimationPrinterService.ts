@@ -25,16 +25,27 @@ export const checkPrinterConnection = (
   printer: Printer,
 ): Promise<{ connected: boolean; error?: string }> =>
   new Promise(resolve => {
+    let resolved = false;
+    const done = (result: { connected: boolean; error?: string }) => {
+      if (resolved) return;
+      resolved = true;
+      clearTimeout(guard);
+      resolve(result);
+    };
+
     const client = TcpSocket.createConnection(
       { host: printer.printerName, port: TCP_PORT, reuseAddress: true },
-      () => { client.destroy(); resolve({ connected: true }); },
+      () => { try { client.destroy(); } catch (_) {} done({ connected: true }); },
     );
-    client.on('error', err => { client.destroy(); resolve({ connected: false, error: err.message }); });
-    client.on('timeout', () => { client.destroy(); resolve({ connected: false, error: 'Connection timed out' }); });
-    setTimeout(() => {
+    client.setTimeout(5000);
+    client.on('error',   err => { try { client.destroy(); } catch (_) {} done({ connected: false, error: err.message }); });
+    client.on('timeout', ()  => { try { client.destroy(); } catch (_) {} done({ connected: false, error: 'Timed out — check printer IP and network' }); });
+
+    // Hard fallback (in case socket emits neither error nor timeout)
+    const guard = setTimeout(() => {
       try { client.destroy(); } catch (_) {}
-      resolve({ connected: false, error: 'Timeout' });
-    }, 6000);
+      done({ connected: false, error: 'No response — printer may be offline or IP has changed' });
+    }, 7000);
   });
 
 // ─── Build ESC/POS receipt — mirrors the Next.js EstimationPrint layout ───────
@@ -213,19 +224,26 @@ export const buildReceiptContent = (params: {
 // ─── Send to thermal printer via TCP ─────────────────────────────────────────
 export const printEstimation = (printer: Printer, content: string): Promise<void> =>
   new Promise((resolve, reject) => {
+    let settled = false;
+    const ok  = () => { if (!settled) { settled = true; clearTimeout(guard); resolve(); } };
+    const err = (e: Error) => { if (!settled) { settled = true; clearTimeout(guard); reject(e); } };
+
     const client = TcpSocket.createConnection(
       { host: printer.printerName, port: TCP_PORT, reuseAddress: true },
       () => {
-        client.write(Buffer.from(content, 'utf8'), undefined, err => {
-          if (err) { client.destroy(); return reject(err); }
-          setTimeout(() => { client.destroy(); resolve(); }, 1000);
+        client.write(Buffer.from(content, 'utf8'), undefined, writeErr => {
+          if (writeErr) { try { client.destroy(); } catch (_) {} err(writeErr); return; }
+          // Give printer 1s to process then close
+          setTimeout(() => { try { client.destroy(); } catch (_) {} ok(); }, 1200);
         });
       },
     );
-    client.on('error', err => { client.destroy(); reject(err); });
-    client.on('timeout', () => { client.destroy(); reject(new Error('Print connection timed out')); });
-    setTimeout(() => {
+    client.setTimeout(10000);
+    client.on('error',   e   => { try { client.destroy(); } catch (_) {} err(e); });
+    client.on('timeout', ()  => { try { client.destroy(); } catch (_) {} err(new Error('Print connection timed out')); });
+
+    const guard = setTimeout(() => {
       try { client.destroy(); } catch (_) {}
-      reject(new Error('Print operation timed out'));
+      err(new Error('Print timed out — check printer power and network'));
     }, 15000);
   });

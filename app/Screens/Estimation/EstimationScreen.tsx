@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 
 import Header                            from '../../components/common/Header';
 import { useToast }                      from '../../components/common/Toast';
@@ -42,10 +45,13 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
   const { saving, saveError, savedEstNo, save, clearSaveError } = useSaveEstimate();
   const { executePrint, printing, activePrinter, refreshPrinter } = useEstimationPrint();
   const employeeService = useEmployeeService();
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
 
   const [tagInput,         setTagInput]         = useState('');
+  const [showScanner,      setShowScanner]      = useState(false);
+  const [scanned,          setScanned]          = useState(false);
   const [qty,              setQty]              = useState('1');
-  const [discPer,          setDiscPer]          = useState('0');
+  const [discPer,          setDiscPer]          = useState('');
   const [salesman,         setSalesman]         = useState('');
   const [salesmanName,     setSalesmanName]     = useState('');
   const [lookingUpSalesman,setLookingUpSalesman]= useState(false);
@@ -114,11 +120,32 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
     }
   }, [savedEstNo]);
 
-  // ── Tag submit ────────────────────────────────────────────────────
+  // ── Tag search — manual only (button / Enter). Camera scan auto-fetches. ──
   const handleTagSubmit = useCallback(() => {
     if (!tagInput.trim()) return;
     lookup(tagInput.trim());
   }, [tagInput, lookup]);
+
+  // ── Open barcode scanner ──────────────────────────────────────────
+  const handleOpenScanner = async () => {
+    if (!cameraPermission?.granted) {
+      const result = await requestCameraPermission();
+      if (!result.granted) {
+        Alert.alert('Camera Permission', 'Camera access is required to scan barcodes.');
+        return;
+      }
+    }
+    setScanned(false);
+    setShowScanner(true);
+  };
+
+  const handleBarcodeScan = useCallback(({ data }: { data: string }) => {
+    if (scanned) return;   // ignore duplicate fires
+    setScanned(true);
+    setShowScanner(false);
+    setTagInput(data);
+    setTimeout(() => lookup(data), 100);  // give state time to settle
+  }, [scanned, lookup]);
 
   // ── QTY change — enforce max available pieces ─────────────────────
   const availablePieces = product
@@ -160,7 +187,7 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
     const rate    = product.sellingRate || product.mrp || 0;
     const weight  = product.weight || 0;
     const gstPer  = (product.aboveCgstTaxPer || 0) + (product.aboveSgstTaxPer || 0);
-    const disc    = Number(discPer) || 0;
+    const disc    = parseFloat(discPer) || 0;
     const calc    = GstCalculator.calculate(taxType, q, rate, disc, gstPer, weight);
 
     const newItem: EstimationItem = {
@@ -204,7 +231,7 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
 
     setTagInput('');
     setQty('1');
-    setDiscPer('0');
+    setDiscPer('');
     clearProduct();
     setTimeout(() => tagRef.current?.focus(), 100);
   }, [product, qty, discPer, salesman, items, taxType, clearProduct]);
@@ -223,7 +250,7 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
           setItems([]);
           setTagInput('');
           setQty('1');
-          setDiscPer('0');
+          setDiscPer('');
           setSalesman('');
           clearProduct();
           setTimeout(() => tagRef.current?.focus(), 100);
@@ -238,26 +265,28 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
     setShowCustomerModal(true);
   };
 
-  // ── Salesman code → name lookup ───────────────────────────────────
-  const handleSalesmanBlur = async () => {
+  // ── Salesman code → name (immediate debounced lookup) ───────────────
+  useEffect(() => {
     const code = salesman.trim();
-    if (!code || lookingUpSalesman) return;
-    setLookingUpSalesman(true);
-    try {
-      const emp = await employeeService.findEmployeeByCode(code);
-      if (emp) {
-        const fullName = [emp.EMPNAME, emp.EMPSURNAME].filter(Boolean).join(' ');
-        setSalesmanName(fullName);
-      } else {
+    if (!code) { setSalesmanName(''); return; }
+    const timer = setTimeout(async () => {
+      setLookingUpSalesman(true);
+      try {
+        const emp = await employeeService.findEmployeeByCode(code);
+        if (emp) {
+          setSalesmanName([emp.EMPNAME, emp.EMPSURNAME].filter(Boolean).join(' '));
+        } else {
+          setSalesmanName('');
+          toast.show({ message: `No employee found for code "${code}"`, type: 'warning' });
+        }
+      } catch {
         setSalesmanName('');
-        toast.show({ message: `No employee found for code "${code}"`, type: 'warning' });
+      } finally {
+        setLookingUpSalesman(false);
       }
-    } catch {
-      setSalesmanName('');
-    } finally {
-      setLookingUpSalesman(false);
-    }
-  };
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [salesman]);
 
   // Snapshot print params before clearing form
   const snapshotPrint = (customerInfo: CustomerInfo | null) => {
@@ -276,7 +305,7 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
     setItems([]);
     setTagInput('');
     setQty('1');
-    setDiscPer('0');
+    setDiscPer('');
     setSalesman('');
     setSalesmanName('');
     clearProduct();
@@ -344,13 +373,22 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.fieldRow}>
             <Text style={styles.fieldLabel}>Tag / Barcode <Text style={styles.req}>*</Text></Text>
             <View style={styles.tagRow}>
+              {/* Camera scan button */}
+              <TouchableOpacity
+                style={styles.cameraBtn}
+                onPress={handleOpenScanner}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.cameraBtnIcon}>📷</Text>
+              </TouchableOpacity>
+
               <TextInput
                 ref={tagRef}
                 style={[styles.input, styles.tagInput]}
-                placeholder="Scan or type tag no…"
+                placeholder="Type tag no…"
                 placeholderTextColor={Colors.textDisabled}
                 value={tagInput}
-                onChangeText={setTagInput}
+                onChangeText={v => { setTagInput(v); }}
                 onSubmitEditing={handleTagSubmit}
                 returnKeyType="search"
                 autoCapitalize="characters"
@@ -410,8 +448,11 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
                 style={styles.input}
                 value={discPer}
                 onChangeText={setDiscPer}
+                placeholder="0"
+                placeholderTextColor="#aaa"
                 keyboardType="decimal-pad"
                 returnKeyType="next"
+                selectTextOnFocus
                 onSubmitEditing={() => salesmanRef.current?.focus()}
               />
             </View>
@@ -421,12 +462,11 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
                 ref={salesmanRef}
                 style={styles.input}
                 value={salesman}
-                onChangeText={v => { setSalesman(v); setSalesmanName(''); }}
+                onChangeText={setSalesman}
                 placeholder="Code"
                 placeholderTextColor={Colors.textDisabled}
                 autoCapitalize="characters"
                 returnKeyType="done"
-                onBlur={handleSalesmanBlur}
                 onSubmitEditing={handleAdd}
               />
               {lookingUpSalesman && (
@@ -526,6 +566,45 @@ const EstimationScreen: React.FC<Props> = ({ navigation }) => {
         onSkip={handleCustomerSkip}
         onClose={() => setShowCustomerModal(false)}
       />
+
+      {/* ── Barcode Scanner Modal ── */}
+      <Modal
+        visible={showScanner}
+        animationType="slide"
+        onRequestClose={() => setShowScanner(false)}
+        statusBarTranslucent
+      >
+        <View style={styles.scannerRoot}>
+          <CameraView
+            style={styles.scannerCamera}
+            facing="back"
+            barcodeScannerSettings={{
+              barcodeTypes: ['qr', 'code128', 'code39', 'ean13', 'ean8', 'upc_a', 'upc_e', 'datamatrix', 'pdf417'],
+            }}
+            onBarcodeScanned={handleBarcodeScan}
+          />
+
+          {/* Overlay frame */}
+          <View style={styles.scannerOverlay} pointerEvents="none">
+            <View style={styles.scannerFrame}>
+              <View style={[styles.corner, styles.cornerTL]} />
+              <View style={[styles.corner, styles.cornerTR]} />
+              <View style={[styles.corner, styles.cornerBL]} />
+              <View style={[styles.corner, styles.cornerBR]} />
+            </View>
+            <Text style={styles.scannerHint}>Point camera at barcode or QR code</Text>
+          </View>
+
+          {/* Close button */}
+          <TouchableOpacity
+            style={styles.scannerClose}
+            onPress={() => setShowScanner(false)}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.scannerCloseTxt}>✕  Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -620,6 +699,64 @@ const styles = StyleSheet.create({
     minHeight:        44,
   },
   lookupBtnText: { color: Colors.white, fontWeight: Typography.fontWeightBold, fontSize: Typography.fontSizeSM },
+
+  // Camera scan button
+  cameraBtn: {
+    width: 44, height: 44,
+    backgroundColor: Colors.primaryBg,
+    borderRadius: Radius.md,
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cameraBtnIcon: { fontSize: 22 },
+
+  // Scanner modal
+  scannerRoot:   { flex: 1, backgroundColor: '#000' },
+  scannerCamera: { flex: 1 },
+  scannerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scannerFrame: {
+    width: 260, height: 260,
+    position: 'relative',
+  },
+  corner: {
+    position: 'absolute',
+    width: 36, height: 36,
+    borderColor: Colors.primary,
+    borderWidth: 3,
+  },
+  cornerTL: { top: 0, left: 0,   borderRightWidth: 0, borderBottomWidth: 0, borderTopLeftRadius: 6 },
+  cornerTR: { top: 0, right: 0,  borderLeftWidth: 0,  borderBottomWidth: 0, borderTopRightRadius: 6 },
+  cornerBL: { bottom: 0, left: 0,  borderRightWidth: 0, borderTopWidth: 0, borderBottomLeftRadius: 6 },
+  cornerBR: { bottom: 0, right: 0, borderLeftWidth: 0,  borderTopWidth: 0, borderBottomRightRadius: 6 },
+  scannerHint: {
+    marginTop: 24,
+    color: '#fff',
+    fontSize: Typography.fontSizeSM,
+    textAlign: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: Radius.full,
+    overflow: 'hidden',
+  },
+  scannerClose: {
+    position: 'absolute',
+    bottom: 50,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  scannerCloseTxt: { color: '#fff', fontSize: Typography.fontSizeMD, fontWeight: Typography.fontWeightBold },
 
   productBox: {
     backgroundColor: Colors.primaryBg,

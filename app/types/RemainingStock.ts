@@ -40,7 +40,7 @@ export interface RemainingStockParams {
   tagNo?:          string;
   fromDate?:       string;
   toDate?:         string;
-  productName?:    string;
+  productCode?:    string;   // numeric code of the selected product
   subProductCode?: string;
   sizeCode?:       string;
   brandCode?:      string;

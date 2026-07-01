@@ -87,9 +87,9 @@ const Field: React.FC<FieldProps> = ({
 
 const fi = StyleSheet.create({
   wrap:    { marginBottom: Spacing.sm },
-  label:   { fontSize: 13, fontWeight: '700', color: Colors.textSecondary, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
+  label:   { fontSize: 12, fontWeight: '700', color: Colors.textSecondary, marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0.6 },
   req:     { color: Colors.error },
-  input:   { height: 42, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, fontSize: 15, color: Colors.textPrimary, backgroundColor: Colors.surface },
+  input:   { height: 44, borderWidth: 1.5, borderColor: Colors.border, borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, fontSize: 15, color: Colors.textPrimary, backgroundColor: Colors.surface },
   readOnly:{ backgroundColor: Colors.background, color: Colors.textSecondary },
 });
 
@@ -133,7 +133,7 @@ const PickerField: React.FC<PickerFieldProps> = ({ label, value, options, onSele
 
 const pk = StyleSheet.create({
   wrap:           { marginBottom: Spacing.sm, zIndex: 10 },
-  btn:            { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', height: 42, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, backgroundColor: Colors.surface },
+  btn:            { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', height: 44, borderWidth: 1.5, borderColor: Colors.border, borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, backgroundColor: Colors.surface },
   text:           { fontSize: 15, color: Colors.textPrimary, flex: 1 },
   arrow:          { fontSize: 12, color: Colors.textSecondary },
   dropdown:       { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.sm, marginTop: 2, ...Shadow.md },
@@ -709,26 +709,20 @@ const CustomerModal: React.FC<Props> = ({
               {/* ══ INFO STEP ══════════════════════════════════════ */}
               {step === 'info' && (
                 <View>
-                  {/* Row: Title + Name */}
-                  <View style={s.row2}>
-                    <View style={{ width: 90 }}>
-                      <PickerField
-                        label="Title"
-                        value={customer.TITLE}
-                        options={TITLE_OPTIONS}
-                        onSelect={v => set('TITLE', v)}
-                      />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Field
-                        label="Customer Name" required
-                        value={customer.PNAME}
-                        onChangeText={v => set('PNAME', v)}
-                        placeholder="Full Name"
-                        inputRef={nameRef}
-                      />
-                    </View>
+                  {/* ── Section: Personal Info ── */}
+                  <View style={s.sectionHeader}>
+                    <Text style={s.sectionIcon}>👤</Text>
+                    <Text style={s.sectionTitle}>Personal Info</Text>
                   </View>
+
+                  {/* Name — full width */}
+                  <Field
+                    label="Customer Name" required
+                    value={customer.PNAME}
+                    onChangeText={v => set('PNAME', v)}
+                    placeholder="Full Name"
+                    inputRef={nameRef}
+                  />
 
                   {/* Mobile + Email */}
                   <View style={s.row2}>
@@ -748,13 +742,19 @@ const CustomerModal: React.FC<Props> = ({
                     </View>
                   </View>
 
+                  {/* ── Section: Address ── */}
+                  <View style={[s.sectionHeader, { marginTop: Spacing.sm }]}>
+                    <Text style={s.sectionIcon}>📍</Text>
+                    <Text style={s.sectionTitle}>Address</Text>
+                  </View>
+
                   {/* Door + Street */}
                   <View style={s.row2}>
                     <View style={{ width: 90 }}>
                       <Field label="Door No" value={customer.DOORNO} onChangeText={v => set('DOORNO', v)} placeholder="12A" />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Field label="Street / Address" value={customer.ADDRESS3} onChangeText={v => set('ADDRESS3', v)} />
+                      <Field label="Street" value={customer.ADDRESS3} onChangeText={v => set('ADDRESS3', v)} />
                     </View>
                   </View>
 
@@ -778,73 +778,22 @@ const CustomerModal: React.FC<Props> = ({
                         onSelect={handleStateChange}
                       />
                     </View>
-                    <View style={{ width: 100 }}>
-                      <Field label="PIN Code" value={customer.PINCODE}
+                    <View style={{ width: 110 }}>
+                      <Field label="Pincode" value={customer.PINCODE}
                         onChangeText={v => set('PINCODE', v.replace(/\D/g, '').slice(0, 6))}
-                        keyboardType="numeric" maxLength={6}
+                        keyboardType="numeric" maxLength={6} placeholder="600001"
                       />
                     </View>
-                  </View>
-
-                  {/* DOB + Anniversary */}
-                  <View style={s.row2}>
-                    <View style={{ flex: 1 }}>
-                      <DateField
-                        label="Date of Birth"
-                        value={customer.DOB}
-                        onChange={v => set('DOB', v)}
-                        maxDate={new Date()}
-                      />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <DateField
-                        label="Anniversary"
-                        value={customer.ANNIVERSARY}
-                        onChange={v => set('ANNIVERSARY', v)}
-                      />
-                    </View>
-                  </View>
-
-                  {/* PAN + GST */}
-                  <View style={s.row2}>
-                    <View style={{ flex: 1 }}>
-                      <Field label="PAN Number" value={customer.PAN}
-                        onChangeText={v => set('PAN', v.toUpperCase())} maxLength={10} placeholder="ABCDE1234F"
-                      />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Field label="GST Number" value={customer.GSTNO}
-                        onChangeText={v => set('GSTNO', v.toUpperCase())} maxLength={15} placeholder="33ABCDE1234F1Z5"
-                      />
-                    </View>
-                  </View>
-
-                  {/* ID Type + ID No */}
-                  <View style={s.row2}>
-                    <View style={{ flex: 1 }}>
-                      <PickerField label="ID Type" value={customer.IDTYPE} options={IDTYPE_OPTIONS} onSelect={v => set('IDTYPE', v)} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Field label="ID Number" value={customer.IDNO} onChangeText={v => set('IDNO', v)} />
-                    </View>
-                  </View>
-
-                  {/* Privilege ID */}
-                  <View style={{ width: '50%' }}>
-                    <Field label="Privilege ID" value={customer.PREVILEGEID} onChangeText={v => set('PREVILEGEID', v)} />
                   </View>
 
                   {/* Buttons */}
-                  <View style={[s.btnRow, { marginTop: Spacing.sm }]}>
-                    {!isNew && customerList.length > 1 ? (
-                      <TouchableOpacity style={[s.btn, s.btnOutline, { minWidth: 70 }]} onPress={() => setStep('select')}>
-                        <Text style={s.btnOutlineText}>← Back</Text>
-                      </TouchableOpacity>
-                                        ) : (
-                      <TouchableOpacity style={[s.btn, s.btnOutline, { minWidth: 70 }]} onPress={() => setStep('mobile')}>
-                        <Text style={s.btnOutlineText}>← Back</Text>
-                      </TouchableOpacity>
-                    )}
+                  <View style={[s.btnRow, { marginTop: Spacing.md }]}>
+                    <TouchableOpacity
+                      style={[s.btn, s.btnOutline, { flex: 0, minWidth: 80 }]}
+                      onPress={() => setStep(!isNew && customerList.length > 1 ? 'select' : 'mobile')}
+                    >
+                      <Text style={s.btnOutlineText}>← Back</Text>
+                    </TouchableOpacity>
                     <TouchableOpacity
                       style={[s.btn, s.btnGreen, isBusy && s.btnDisabled]}
                       onPress={handleConfirm}
@@ -852,10 +801,10 @@ const CustomerModal: React.FC<Props> = ({
                     >
                       {isBusy
                         ? <ActivityIndicator color={Colors.white} size="small" />
-                        : <Text style={s.btnPrimaryText}>{isNew ? 'Proceed' : 'Update & Proceed'}</Text>
+                        : <Text style={s.btnPrimaryText}>{isNew ? '✓  Proceed' : '✓  Update & Proceed'}</Text>
                       }
                     </TouchableOpacity>
-                    <TouchableOpacity style={[s.btn, s.btnOutline, { minWidth: 70 }]} onPress={onSkip}>
+                    <TouchableOpacity style={[s.btn, s.btnOutline, { flex: 0, minWidth: 80 }]} onPress={onSkip}>
                       <Text style={s.btnOutlineText}>Skip</Text>
                     </TouchableOpacity>
                   </View>
@@ -873,7 +822,7 @@ const CustomerModal: React.FC<Props> = ({
 const s = StyleSheet.create({
   overlay: {
     flex:              1,
-    backgroundColor:   'rgba(0,0,0,0.55)',
+    backgroundColor:   'rgba(0,0,0,0.6)',
     justifyContent:    'center',
     alignItems:        'center',
     paddingHorizontal: Spacing.md,
@@ -887,51 +836,69 @@ const s = StyleSheet.create({
   sheet: {
     flex:             1,
     backgroundColor:  Colors.surface,
-    borderRadius:     16,
+    borderRadius:     20,
     overflow:         'hidden',
     ...Shadow.lg,
   },
+
+  /* ── Header ── */
   header: {
     flexDirection:     'row',
     alignItems:        'center',
     backgroundColor:   '#1a56db',
     paddingHorizontal: Spacing.md,
-    paddingVertical:   12,
+    paddingTop:        16,
+    paddingBottom:     14,
   },
   headerLeft:  { flex: 1 },
-  headerTitle: { color: Colors.white, fontWeight: '700', fontSize: 18 },
-  headerSub:   { color: 'rgba(255,255,255,0.8)', fontSize: 13, marginTop: 2 },
+  headerTitle: { color: Colors.white, fontWeight: '800', fontSize: 19, letterSpacing: 0.3 },
+  headerSub:   { color: 'rgba(255,255,255,0.75)', fontSize: 13, marginTop: 3 },
 
-  badge:      { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3, marginRight: Spacing.sm },
+  badge:      { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4, marginRight: Spacing.sm },
   badgeNew:   { backgroundColor: '#e67e22' },
   badgeExist: { backgroundColor: '#27ae60' },
-  badgeText:  { color: Colors.white, fontSize: 11, fontWeight: '700' },
+  badgeText:  { color: Colors.white, fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
 
-  closeBtn:     { marginLeft: Spacing.sm, width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
-  closeBtnText: { color: Colors.white, fontSize: 18, lineHeight: 20 },
+  closeBtn:     { marginLeft: Spacing.sm, width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
+  closeBtnText: { color: Colors.white, fontSize: 18, lineHeight: 22, fontWeight: '600' },
 
   body:        { flex: 1 },
-  bodyContent: { padding: Spacing.md, paddingBottom: 20 },
+  bodyContent: { padding: Spacing.md, paddingBottom: 24 },
 
   row2: { flexDirection: 'row', gap: Spacing.sm },
 
-  btnRow:        { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm, paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border },
-  btn:           { flex: 1, height: 44, borderRadius: Radius.sm, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.sm },
-  btnOutline:    { borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
-  btnGreen:      { backgroundColor: Colors.primary },
-  btnDisabled:   { opacity: 0.6 },
-  btnOutlineText:{ fontSize: 14, color: Colors.textPrimary, fontWeight: '500' },
-  btnPrimaryText:{ fontSize: 14, color: Colors.white, fontWeight: '700' },
+  /* ── Section header inside info step ── */
+  sectionHeader: {
+    flexDirection:  'row',
+    alignItems:     'center',
+    gap:            6,
+    marginBottom:   Spacing.sm,
+    paddingBottom:  6,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  sectionIcon:  { fontSize: 15 },
+  sectionTitle: { fontSize: 13, fontWeight: '700', color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.6 },
 
-  mobileHint:     { backgroundColor: Colors.primaryBg, borderRadius: Radius.sm, padding: Spacing.sm, marginBottom: Spacing.sm },
-  mobileHintText: { fontSize: 14, color: Colors.textSecondary },
-  mobileRow:      { flexDirection: 'row', marginBottom: Spacing.sm },
-  mobilePrefix:   { height: 46, paddingHorizontal: Spacing.sm, borderWidth: 1, borderColor: Colors.border, borderTopLeftRadius: Radius.sm, borderBottomLeftRadius: Radius.sm, alignItems: 'center', justifyContent: 'center' },
+  /* ── Buttons ── */
+  btnRow:        { flexDirection: 'row', gap: Spacing.sm, paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border },
+  btn:           { flex: 1, height: 46, borderRadius: Radius.sm, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.sm },
+  btnOutline:    { borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.surface },
+  btnGreen:      { backgroundColor: Colors.primary },
+  btnDisabled:   { opacity: 0.55 },
+  btnOutlineText:{ fontSize: 14, color: Colors.textPrimary, fontWeight: '600' },
+  btnPrimaryText:{ fontSize: 14, color: Colors.white, fontWeight: '800', letterSpacing: 0.3 },
+
+  /* ── Mobile step ── */
+  mobileHint:      { backgroundColor: Colors.primaryBg, borderRadius: Radius.sm, padding: Spacing.sm, marginBottom: Spacing.sm },
+  mobileHintText:  { fontSize: 14, color: Colors.textSecondary },
+  mobileRow:       { flexDirection: 'row', marginBottom: Spacing.sm },
+  mobilePrefix:    { height: 48, paddingHorizontal: Spacing.sm, borderWidth: 1, borderColor: Colors.border, borderTopLeftRadius: Radius.sm, borderBottomLeftRadius: Radius.sm, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background },
   mobilePrefixText:{ fontSize: 15, color: Colors.textSecondary, fontWeight: '700' },
-  mobileInput:    { flex: 1, height: 46, borderWidth: 1, borderLeftWidth: 0, borderColor: Colors.border, borderTopRightRadius: Radius.sm, borderBottomRightRadius: Radius.sm, paddingHorizontal: Spacing.sm, fontSize: 18, color: Colors.textPrimary, backgroundColor: Colors.surface, letterSpacing: 2, fontWeight: '600' },
-  inputError:     { borderColor: Colors.error },
-  errorText:      { color: Colors.error, fontSize: 13, marginBottom: Spacing.sm },
-  btnPrimary:     { backgroundColor: Colors.primary },
+  mobileInput:     { flex: 1, height: 48, borderWidth: 1, borderLeftWidth: 0, borderColor: Colors.border, borderTopRightRadius: Radius.sm, borderBottomRightRadius: Radius.sm, paddingHorizontal: Spacing.sm, fontSize: 20, color: Colors.textPrimary, backgroundColor: Colors.surface, letterSpacing: 3, fontWeight: '700' },
+  inputError:      { borderColor: Colors.error },
+  errorText:       { color: Colors.error, fontSize: 13, marginBottom: Spacing.sm },
+  btnPrimary:      { backgroundColor: Colors.primary },
 });
 
 export default CustomerModal;

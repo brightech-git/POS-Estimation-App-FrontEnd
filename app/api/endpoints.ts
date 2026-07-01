@@ -42,6 +42,51 @@ export const REMAINING_STOCK = {
   GET: '/remaining-stock',
 };
 
+export const CASCADE = {
+  // Searches across all product+subproduct combinations
+  FILTER: (search: string, page = 0, size = 500) =>
+    `/filter/cascade?search=${encodeURIComponent(search)}&page=${page}&size=${size}`,
+};
+
+export const PRODUCT = {
+  ALL: (page = 0, size = 50, search?: string) => {
+    let url = `/product/all?page=${page}&size=${size}`;
+    if (search?.trim()) url += `&search=${encodeURIComponent(search.trim())}`;
+    return url;
+  },
+};
+
+export const SUB_PRODUCT = {
+  ALL: (page = 0, size = 100, search?: string, productCode?: number) => {
+    let url = `/subproduct/all?page=${page}&size=${size}`;
+    if (search?.trim())  url += `&search=${encodeURIComponent(search.trim())}`;
+    if (productCode)     url += `&productCode=${productCode}`;
+    return url;
+  },
+};
+
+export const BRAND = {
+  // SUBPRODUCTCODES param narrows by sub-product when provided
+  ALL: (page = 0, size = 200, search?: string, productCode?: number, subProductCode?: number) => {
+    let url = `/brand?PAGE=${page}&SIZE=${size}`;
+    if (search?.trim())   url += `&SEARCH=${encodeURIComponent(search.trim())}`;
+    if (productCode)      url += `&PRODUCTCODE=${productCode}`;
+    if (subProductCode)   url += `&SUBPRODUCTCODES=${subProductCode}`;
+    return url;
+  },
+};
+
+export const SIZE = {
+  // subProductCodes param narrows by sub-product when provided
+  ALL: (page = 0, size = 200, search?: string, productCode?: number, subProductCode?: number) => {
+    let url = `/size?page=${page}&size=${size}`;
+    if (search?.trim())   url += `&search=${encodeURIComponent(search.trim())}`;
+    if (productCode)      url += `&productCode=${productCode}`;
+    if (subProductCode)   url += `&subProductCodes=${subProductCode}`;
+    return url;
+  },
+};
+
 export const PRINTER = {
   BY_OPER:    (operCode: string | number) => `/printer-setting/operator/${operCode}`,
   CREATE:     '/printer-setting',

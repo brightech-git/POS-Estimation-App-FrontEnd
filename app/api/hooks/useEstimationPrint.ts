@@ -69,8 +69,30 @@ export const useEstimationPrint = () => {
       if (!status.connected) {
         Alert.alert(
           'Printer Offline',
-          `Cannot reach "${activePrinter.printerName}".\n${status.error ?? ''}`,
-          [{ text: 'OK' }],
+          `Cannot reach "${activePrinter.printerName}" on port 9100.\n\n${status.error ?? 'Network unreachable'}\n\nCheck: printer is ON, on Wi-Fi, and IP is correct.`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Retry',
+              onPress: async () => {
+                if (!isMounted.current) return;
+                setPrinting(true);
+                try {
+                  const retry = await checkPrinterConnection(activePrinter);
+                  if (!retry.connected) {
+                    Alert.alert('Still Offline', retry.error ?? 'Cannot connect');
+                    return;
+                  }
+                  const retryContent = buildReceiptContent(params);
+                  await printEstimation(activePrinter, retryContent);
+                } catch (e2: any) {
+                  Alert.alert('Print Error', e2?.message ?? 'Failed to print');
+                } finally {
+                  if (isMounted.current) setPrinting(false);
+                }
+              },
+            },
+          ],
         );
         return;
       }
